@@ -1,0 +1,26 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Scraped posts{% endblock %}
+{% block heading %}{{ source.name }} — captured posts{% endblock %}
+{% block actions %}
+    <form class="inline-form" method="post" action="{% url 'dashboard:scrape_run' source.pk %}">{% csrf_token %}<button class="btn" type="submit">Run now</button></form>
+{% endblock %}
+{% block content %}
+<div class="card">
+    <table>
+        <thead><tr><th>Date</th><th>Msg ID</th><th>Matched</th><th>Text</th><th>Forwarded</th></tr></thead>
+        <tbody>
+        {% for p in posts %}
+            <tr>
+                <td class="muted">{{ p.post_date|date:"m-d H:i" }}</td>
+                <td class="muted">{{ p.tg_message_id }}</td>
+                <td class="muted">{{ p.matched_keywords|join:", " }}</td>
+                <td>{{ p.text|truncatechars:120 }}{% if p.has_media %} <span class="tag">media</span>{% endif %}</td>
+                <td>{% if p.forwarded %}<span class="pill ok">yes</span>{% else %}<span class="muted">no</span>{% endif %}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="empty">No posts captured yet. Click "Run now".</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

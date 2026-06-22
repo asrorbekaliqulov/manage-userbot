@@ -1,0 +1,69 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ account.label }}{% endblock %}
+{% block heading %}{{ account.label }}{% endblock %}
+{% block actions %}
+    <a class="btn btn-ghost" href="{% url 'dashboard:account_edit' account.pk %}">Edit</a>
+    <form class="inline-form" method="post" action="{% url 'dashboard:account_disconnect' account.pk %}">
+        {% csrf_token %}<button class="btn btn-danger" type="submit">Disconnect</button>
+    </form>
+{% endblock %}
+{% block content %}
+<div class="grid cols-3">
+    <div class="card">
+        <h3>Identity</h3>
+        <div class="stack">
+            <div><span class="muted">Status</span><br><span class="pill {{ account.status }}">{{ account.get_status_display }}</span></div>
+            <div><span class="muted">Phone</span><br>{{ account.phone|default:"—" }}</div>
+            <div><span class="muted">Username</span><br>{% if account.username %}@{{ account.username }}{% else %}—{% endif %}</div>
+            <div><span class="muted">Name</span><br>{{ account.display_name }}</div>
+            <div><span class="muted">2FA</span><br>{% if account.is_2fa_enabled %}Enabled{% else %}Disabled{% endif %}</div>
+            <div><span class="muted">Owner</span><br>{{ account.owner|default:"Platform (admin)" }}</div>
+        </div>
+    </div>
+    <div class="card">
+        <h3>Presence (auto-reply mode)</h3>
+        <p class="muted">Controls which auto-reply rules fire.</p>
+        <form method="post" action="{% url 'dashboard:account_presence' account.pk %}" class="stack">
+            {% csrf_token %}
+            <select name="presence">
+                <option value="available" {% if account.presence == 'available' %}selected{% endif %}>Available / online</option>
+                <option value="busy" {% if account.presence == 'busy' %}selected{% endif %}>Busy / away</option>
+            </select>
+            <button class="btn" type="submit">Update presence</button>
+        </form>
+    </div>
+    <div class="card">
+        <h3>Privacy</h3>
+        {% if account.is_private %}
+            <p>This account is <strong>private</strong>. Message content is encrypted with the owner's API key and the admin panel cannot read it without unlocking.</p>
+            <form method="post" action="{% url 'dashboard:unlock_messages' %}" class="stack">
+                {% csrf_token %}
+                {% include "dashboard/_form.html" with form=unlock_form %}
+                <button class="btn btn-ghost" type="submit">Unlock with API key</button>
+            </form>
+        {% else %}
+            <p class="muted">Standard account — content is readable in the panel. All actions are still logged.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+    <div class="row-between"><h3>Recent messages</h3><a class="muted" href="{% url 'dashboard:messages' %}?account={{ account.pk }}">All messages</a></div>
+    <table>
+        <thead><tr><th>Date</th><th>Dir</th><th>Kind</th><th>Chat</th><th>Content</th></tr></thead>
+        <tbody>
+        {% for m in messages %}
+            <tr>
+                <td class="muted">{{ m.obj.date|date:"m-d H:i" }}</td>
+                <td>{{ m.obj.get_direction_display }}</td>
+                <td><span class="tag">{{ m.obj.get_kind_display }}</span></td>
+                <td>{{ m.obj.chat_title|default:m.obj.chat_id }}</td>
+                <td>{% if m.locked %}<span class="pill locked">locked — unlock with API key</span>{% else %}{{ m.text|default:"—"|truncatechars:80 }}{% endif %}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="empty">No messages recorded yet. Start the worker: <span class="tag">python manage.py run_userbots</span></td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

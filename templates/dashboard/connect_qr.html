@@ -1,0 +1,37 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Scan QR{% endblock %}
+{% block heading %}Scan QR code{% endblock %}
+{% block content %}
+<div class="card" style="max-width:420px;">
+    <div class="qr-box">
+        <img id="qr-img" src="{{ qr_data_uri }}" alt="QR login code">
+        <p class="muted" id="qr-status">On your phone open Telegram → Settings → Devices →
+            Link Desktop Device, and scan this code.</p>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const sessionId = {{ session.pk }};
+const pollUrl = "{% url 'dashboard:connect_qr_poll' session.pk %}";
+async function poll() {
+    try {
+        const res = await fetch(pollUrl);
+        const data = await res.json();
+        if (data.status === 'ok' || data.status === 'password_needed') {
+            window.location.href = data.redirect;
+            return;
+        }
+        if (data.status === 'waiting' && data.qr) {
+            document.getElementById('qr-img').src = data.qr;
+        }
+        if (data.status === 'error') {
+            document.getElementById('qr-status').textContent = 'Error: ' + data.error;
+            return;
+        }
+    } catch (e) { /* keep polling */ }
+    setTimeout(poll, 3000);
+}
+setTimeout(poll, 3000);
+</script>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "dashboard/base.html" %}
+{% block title %}New auto-reply rule{% endblock %}
+{% block heading %}New auto-reply rule{% endblock %}
+{% block content %}
+<div class="card" style="max-width:680px;">
+    <p class="muted">Reply automatically to incoming DMs. Use mode "When online" / "When busy"
+        together with each account's presence to switch between greeting and away messages.</p>
+    <form method="post" class="stack">
+        {% csrf_token %}
+        {% include "dashboard/_form.html" %}
+        <div class="row-between">
+            <a class="btn btn-ghost" href="{% url 'dashboard:autoreplies' %}">Cancel</a>
+            <button class="btn" type="submit">Create rule</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

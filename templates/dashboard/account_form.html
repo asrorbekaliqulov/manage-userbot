@@ -1,0 +1,15 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Edit account{% endblock %}
+{% block heading %}Edit account — {{ account.label }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:640px;">
+    <form method="post" class="stack">
+        {% csrf_token %}
+        {% include "dashboard/_form.html" %}
+        <div class="row-between">
+            <a class="btn btn-ghost" href="{% url 'dashboard:account_detail' account.pk %}">Cancel</a>
+            <button class="btn" type="submit">Save changes</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

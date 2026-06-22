@@ -1,0 +1,31 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Accounts{% endblock %}
+{% block heading %}Accounts{% endblock %}
+{% block actions %}<a class="btn" href="{% url 'dashboard:connect_start' %}">+ Connect account</a>{% endblock %}
+{% block content %}
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>Label</th><th>Phone / @username</th><th>Status</th><th>2FA</th><th>Presence</th><th>Owner</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for a in accounts %}
+            <tr>
+                <td><a href="{% url 'dashboard:account_detail' a.pk %}">{{ a.label }}</a>
+                    {% if a.is_private %}<span class="pill locked">private</span>{% endif %}</td>
+                <td class="muted">{{ a.phone }}{% if a.username %} · @{{ a.username }}{% endif %}</td>
+                <td><span class="pill {{ a.status }}">{{ a.get_status_display }}</span></td>
+                <td>{% if a.is_2fa_enabled %}<span class="pill ok">on</span>{% else %}<span class="muted">off</span>{% endif %}</td>
+                <td><span class="pill {{ a.presence }}">{{ a.get_presence_display }}</span></td>
+                <td class="muted">{{ a.owner|default:"—" }}</td>
+                <td>
+                    <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:account_edit' a.pk %}">Edit</a>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="7" class="empty">No accounts connected yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

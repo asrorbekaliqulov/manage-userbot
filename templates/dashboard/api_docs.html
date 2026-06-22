@@ -1,0 +1,87 @@
+{% extends "dashboard/base.html" %}
+{% block title %}API docs{% endblock %}
+{% block heading %}Developer API documentation{% endblock %}
+{% block actions %}
+    <a class="btn btn-ghost" href="/api/docs/" target="_blank">Swagger UI</a>
+    <a class="btn btn-ghost" href="/api/redoc/" target="_blank">ReDoc</a>
+{% endblock %}
+{% block content %}
+<div class="stack">
+    <div class="card">
+        <h3>1. Getting an API key</h3>
+        <p>Developers request a key; an admin approves it and the key is delivered over
+            email and/or Telegram. Submit a request without authentication:</p>
+        <div class="code-block">curl -X POST {{ request.scheme }}://{{ request.get_host }}/api/v1/request-key/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Acme Inc",
+    "organization": "Acme",
+    "email": "dev@acme.com",
+    "telegram_username": "acme_dev",
+    "reason": "Building a CRM integration",
+    "requested_scopes": ["accounts:read","messages:read","messages:send"],
+    "delivery_method": "both"
+  }'</div>
+        <p class="muted">Once an admin approves it in <a href="{% url 'dashboard:key_requests' %}">Key requests</a>,
+            the key arrives via the chosen channel. It is shown only once.</p>
+    </div>
+
+    <div class="card">
+        <h3>2. Authentication</h3>
+        <p>Send your key in the <span class="tag">Authorization</span> header on every request:</p>
+        <div class="code-block">Authorization: Api-Key ubp_xxxxxxxx_your_secret
+# or
+X-API-Key: ubp_xxxxxxxx_your_secret</div>
+        <p class="muted">Each key carries scopes; endpoints require the matching scope.</p>
+    </div>
+
+    <div class="card">
+        <h3>3. Endpoints</h3>
+        <table>
+            <thead><tr><th>Method</th><th>Path</th><th>Scope</th><th>Description</th></tr></thead>
+            <tbody>
+                <tr><td>GET</td><td><span class="tag">/api/v1/accounts/</span></td><td>accounts:read</td><td>List your connected accounts</td></tr>
+                <tr><td>GET</td><td><span class="tag">/api/v1/accounts/{id}/dialogs/</span></td><td>accounts:read</td><td>Recent conversations</td></tr>
+                <tr><td>GET</td><td><span class="tag">/api/v1/accounts/{id}/history/?target=@user</span></td><td>messages:read</td><td>Conversation history</td></tr>
+                <tr><td>POST</td><td><span class="tag">/api/v1/accounts/{id}/send-message/</span></td><td>messages:send</td><td>Send a message</td></tr>
+                <tr><td>POST</td><td><span class="tag">/api/v1/accounts/{id}/create-channel/</span></td><td>channels</td><td>Create a channel/supergroup</td></tr>
+                <tr><td>GET</td><td><span class="tag">/api/v1/messages/?account={id}</span></td><td>messages:read</td><td>Stored messages (decrypted with your key)</td></tr>
+                <tr><td>GET/POST</td><td><span class="tag">/api/v1/schedules/</span></td><td>schedules</td><td>Manage scheduled messages</td></tr>
+                <tr><td>GET/POST</td><td><span class="tag">/api/v1/autoreplies/</span></td><td>autoreply</td><td>Manage auto-reply rules</td></tr>
+                <tr><td>GET/POST</td><td><span class="tag">/api/v1/scrape-sources/</span></td><td>scraping</td><td>Manage scraping rules</td></tr>
+                <tr><td>GET</td><td><span class="tag">/api/v1/scraped-posts/?source={id}</span></td><td>scraping</td><td>Read captured posts</td></tr>
+                <tr><td>GET</td><td><span class="tag">/api/v1/logs/</span></td><td>logs:read</td><td>Read action logs for your accounts</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3>4. Examples</h3>
+        <div class="code-block"># Send a message
+curl -X POST {{ request.scheme }}://{{ request.get_host }}/api/v1/accounts/1/send-message/ \
+  -H "Authorization: Api-Key $UBP_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"target": "@durov", "text": "Hello from the API"}'
+
+# Schedule a broadcast to all your accounts
+curl -X POST {{ request.scheme }}://{{ request.get_host }}/api/v1/schedules/ \
+  -H "Authorization: Api-Key $UBP_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Promo","text":"Big sale!","from_mode":"all",
+       "targets":["@chan1","@chan2"],"scheduled_for":"2026-07-01T09:00:00Z"}'
+
+# Read your accounts
+curl {{ request.scheme }}://{{ request.get_host }}/api/v1/accounts/ \
+  -H "Authorization: Api-Key $UBP_KEY"</div>
+    </div>
+
+    <div class="card">
+        <h3>5. Privacy model</h3>
+        <p class="muted">Accounts you connect can be marked <strong>private</strong>. Their message
+            content is encrypted with your developer content key. The platform admin cannot read it
+            from the panel without your API key — but every action (logins, edits, messages sent,
+            channels created) is always recorded in the audit log. Through the API, with your key,
+            you have full read/write access to your own accounts.</p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "dashboard/base.html" %}
+{% block title %}New schedule{% endblock %}
+{% block heading %}New scheduled message{% endblock %}
+{% block content %}
+<div class="card" style="max-width:680px;">
+    <p class="muted">Send a message at a future time. Choose a single account or fan out
+        to all enabled accounts, and list one or more targets (users, channels, groups).</p>
+    <form method="post" class="stack">
+        {% csrf_token %}
+        {% include "dashboard/_form.html" %}
+        <div class="row-between">
+            <a class="btn btn-ghost" href="{% url 'dashboard:schedules' %}">Cancel</a>
+            <button class="btn" type="submit">Create schedule</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

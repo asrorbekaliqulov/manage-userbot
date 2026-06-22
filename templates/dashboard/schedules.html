@@ -1,0 +1,30 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Schedules{% endblock %}
+{% block heading %}Scheduled messages{% endblock %}
+{% block actions %}<a class="btn" href="{% url 'dashboard:schedule_create' %}">+ New schedule</a>{% endblock %}
+{% block content %}
+<div class="card">
+    <table>
+        <thead><tr><th>Title</th><th>From</th><th>Targets</th><th>When</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+        {% for s in schedules %}
+            <tr>
+                <td>{{ s.title|default:s.pk }}</td>
+                <td>{% if s.from_mode == 'all' %}All accounts{% else %}{{ s.account.label|default:"—" }}{% endif %}</td>
+                <td class="muted">{{ s.targets|length }} target(s)</td>
+                <td class="muted">{{ s.scheduled_for|date:"Y-m-d H:i" }}</td>
+                <td><span class="pill {{ s.status }}">{{ s.get_status_display }}</span></td>
+                <td style="display:flex; gap:6px;">
+                    <form class="inline-form" method="post" action="{% url 'dashboard:schedule_send_now' s.pk %}">{% csrf_token %}<button class="btn btn-sm" type="submit">Send now</button></form>
+                    {% if s.status == 'pending' %}
+                    <form class="inline-form" method="post" action="{% url 'dashboard:schedule_cancel' s.pk %}">{% csrf_token %}<button class="btn btn-ghost btn-sm" type="submit">Cancel</button></form>
+                    {% endif %}
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="6" class="empty">No schedules yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Auto-reply{% endblock %}
+{% block heading %}Auto-reply rules{% endblock %}
+{% block actions %}<a class="btn" href="{% url 'dashboard:autoreply_create' %}">+ New rule</a>{% endblock %}
+{% block content %}
+<div class="card">
+    <table>
+        <thead><tr><th>Name</th><th>Mode</th><th>Scope</th><th>Keywords</th><th>Active</th><th></th></tr></thead>
+        <tbody>
+        {% for r in rules %}
+            <tr>
+                <td>{{ r.name }}</td>
+                <td><span class="pill {{ r.mode }}">{{ r.get_mode_display }}</span></td>
+                <td class="muted">{% if r.apply_to_all %}All accounts{% else %}{{ r.account.label|default:"—" }}{% endif %}</td>
+                <td class="muted">{% if r.keywords %}{{ r.keywords|join:", "|truncatechars:40 }}{% else %}any message{% endif %}</td>
+                <td>{% if r.is_active %}<span class="pill active">on</span>{% else %}<span class="muted">off</span>{% endif %}</td>
+                <td>
+                    <form class="inline-form" method="post" action="{% url 'dashboard:autoreply_toggle' r.pk %}">{% csrf_token %}<button class="btn btn-ghost btn-sm" type="submit">{% if r.is_active %}Disable{% else %}Enable{% endif %}</button></form>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="6" class="empty">No auto-reply rules yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Enter code{% endblock %}
+{% block heading %}Enter login code{% endblock %}
+{% block content %}
+<div class="card" style="max-width:420px;">
+    <p class="muted">A login code was sent to <strong>{{ session.phone }}</strong> via Telegram.</p>
+    <form method="post" class="stack">
+        {% csrf_token %}
+        {% include "dashboard/_form.html" %}
+        <button class="btn" type="submit">Verify code</button>
+    </form>
+</div>
+{% endblock %}

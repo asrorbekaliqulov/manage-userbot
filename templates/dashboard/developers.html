@@ -1,0 +1,26 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Developers{% endblock %}
+{% block heading %}Developers{% endblock %}
+{% block actions %}<a class="btn btn-ghost" href="{% url 'dashboard:key_requests' %}">API key requests</a>{% endblock %}
+{% block content %}
+<div class="card">
+    <table>
+        <thead><tr><th>Name</th><th>Organization</th><th>Email</th><th>Telegram</th><th>API keys</th><th>Accounts</th><th>Active</th></tr></thead>
+        <tbody>
+        {% for d in developers %}
+            <tr>
+                <td>{{ d.name }}</td>
+                <td class="muted">{{ d.organization|default:"—" }}</td>
+                <td class="muted">{{ d.email|default:"—" }}</td>
+                <td class="muted">{% if d.telegram_username %}@{{ d.telegram_username }}{% else %}—{% endif %}</td>
+                <td>{{ d.key_count }}</td>
+                <td>{{ d.account_count }}</td>
+                <td>{% if d.is_active %}<span class="pill active">yes</span>{% else %}<span class="muted">no</span>{% endif %}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="7" class="empty">No developers yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

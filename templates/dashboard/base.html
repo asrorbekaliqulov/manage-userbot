@@ -1,0 +1,63 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Userbot Panel{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+{% if user.is_authenticated %}
+<div class="layout">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-dot"></span>
+            <span>Userbot<strong>Panel</strong></span>
+        </div>
+        <nav>
+            {% for item in nav_items %}
+            <a class="nav-link {% if request.resolver_match.url_name == item.url|cut:'dashboard:' %}active{% endif %}"
+               href="{% url item.url %}">
+                <span class="nav-ico" data-icon="{{ item.icon }}"></span>
+                <span>{{ item.label }}</span>
+                {% if item.url == 'dashboard:key_requests' and pending_requests %}
+                    <span class="badge">{{ pending_requests }}</span>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </nav>
+        <div class="sidebar-foot">
+            <div class="user-chip">{{ user.username }}</div>
+            <form method="post" action="{% url 'dashboard:logout' %}">
+                {% csrf_token %}
+                <button class="btn btn-ghost btn-sm" type="submit">Log out</button>
+            </form>
+        </div>
+    </aside>
+    <main class="content">
+        <header class="topbar">
+            <h1>{% block heading %}{% endblock %}</h1>
+            <div class="topbar-actions">{% block actions %}{% endblock %}</div>
+        </header>
+
+        {% if messages %}
+        <div class="flashes">
+            {% for message in messages %}
+            <div class="flash flash-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="page">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+</div>
+{% else %}
+    {% block auth %}{% endblock %}
+{% endif %}
+{% block scripts %}{% endblock %}
+</body>
+</html>
