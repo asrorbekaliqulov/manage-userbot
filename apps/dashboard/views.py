@@ -17,6 +17,15 @@ from apps.accounts.services import finalize_login
 from apps.accounts.telegram import auth as tg_auth
 from apps.accounts.telegram.actions import create_channel as tg_create_channel
 from apps.accounts.telegram.actions import create_group as tg_create_group
+from apps.accounts.telegram.actions import (
+    fetch_chat as tg_fetch_chat,
+)
+from apps.accounts.telegram.actions import (
+    fetch_dialogs as tg_fetch_dialogs,
+)
+from apps.accounts.telegram.actions import (
+    send_message as tg_send_message,
+)
 from apps.developers.models import APIKey, APIKeyRequest, Developer
 from apps.developers.services import approve_request, reject_request
 from apps.logs.models import ActionLog
@@ -613,3 +622,108 @@ def _qr_data_uri(url: str) -> str:
         return f"data:image/png;base64,{b64}"
     except Exception:  # noqa: BLE001
         return ""
+
+
+
+# ---------------------------------------------------------------------------
+# Chat (Telegram-style conversations: read & reply)
+# ---------------------------------------------------------------------------
+def _chat_locked(request, account: TelegramAccount) -> bool:
+    """Private (developer-owned) accounts stay locked until unlocked by key."""
+    return account.is_private and _content_key_for_session(request, account) is None
+
+
+@login_required
+def chat(request, pk):
+    account = get_object_or_404(TelegramAccount, pk=pk)
+    return render(
+        request,
+        "dashboard/chat.html",
+        {
+            "account": account,
+            "locked": _chat_locked(request, account),
+            "connected": account.status == TelegramAccount.Status.ACTIVE
+            and bool(account.session_enc),
+        },
+    )
+
+
+@login_required
+def chat_dialogs(request, pk):
+    account = get_object_or_404(TelegramAccount, pk=pk)
+    if _chat_locked(request, account):
+        return JsonResponse({"ok": False, "locked": True}, status=403)
+    result = tg_fetch_dialogs(
+        account.get_session(), account.effective_api_id, account.effective_api_hash,
+        limit=int(request.GET.get("limit", 100)),
+    )
+    return JsonResponse(result)
+
+
+@login_required
+def chat_history(request, pk):
+    account = get_object_or_404(TelegramAccount, pk=pk)
+    if _chat_locked(request, account):
+        return JsonResponse({"ok": False, "locked": True}, status=403)
+    target = request.GET.get("target")
+    if not target:
+        return JsonResponse({"ok": False, "error": "target required"}, status=400)
+    result = tg_fetch_chat(
+        account.get_session(), account.effective_api_id, account.effective_api_hash,
+        target, limit=int(request.GET.get("limit", 60)),
+    )
+    if result.get("ok"):
+        from .sanitize import sanitize_html
+
+        for m in result["messages"]:
+            m["html"] = sanitize_html(m.get("html", ""))
+    return JsonResponse(result)
+
+
+@login_required
+def chat_send(request, pk):
+    account = get_object_or_404(TelegramAccount, pk=pk)
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+    if _chat_locked(request, account):
+        return JsonResponse({"ok": False, "locked": True}, status=403)
+
+    import json
+
+    from .sanitize import html_to_telegram, sanitize_html
+
+    try:
+        data = json.loads(request.body.decode() or "{}")
+    except ValueError:
+        data = request.POST
+
+    target = (data.get("target") or "").strip()
+    raw_html = data.get("html") or ""
+    reply_to = data.get("reply_to") or None
+    if not target:
+        return JsonResponse({"ok": False, "error": "target required"}, status=400)
+
+    text = html_to_telegram(raw_html)
+    if not text:
+        return JsonResponse({"ok": False, "error": "empty message"}, status=400)
+
+    result = tg_send_message(
+        account.get_session(),
+        account.effective_api_id,
+        account.effective_api_hash,
+        target,
+        text,
+        reply_to=int(reply_to) if reply_to else None,
+        parse_mode="html",
+    )
+    log_action(
+        category="message", action="chat_reply_sent", account=account,
+        developer=account.owner, actor=request.user, source="panel",
+        metadata={"target": target, "ok": result.get("ok"),
+                  "preview": "" if account.is_private else text[:120]},
+        ip_address=getattr(request, "client_ip", None),
+    )
+    if result.get("ok"):
+        result["html"] = sanitize_html(raw_html)
+    code = 200 if result.get("ok") else 400
+    return JsonResponse(result, status=code)

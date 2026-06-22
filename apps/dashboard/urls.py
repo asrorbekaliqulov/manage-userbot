@@ -29,6 +29,12 @@ urlpatterns = [
     path("accounts/<int:pk>/presence/", views.account_presence, name="account_presence"),
     path("accounts/<int:pk>/disconnect/", views.account_disconnect, name="account_disconnect"),
 
+    # Chat (read & reply, Telegram-style)
+    path("accounts/<int:pk>/chat/", views.chat, name="chat"),
+    path("accounts/<int:pk>/chat/dialogs/", views.chat_dialogs, name="chat_dialogs"),
+    path("accounts/<int:pk>/chat/history/", views.chat_history, name="chat_history"),
+    path("accounts/<int:pk>/chat/send/", views.chat_send, name="chat_send"),
+
     # Messages
     path("messages/", views.messages_view, name="messages"),
     path("messages/unlock/", views.unlock_messages, name="unlock_messages"),

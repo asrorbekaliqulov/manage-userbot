@@ -19,6 +19,7 @@
                 <td><span class="pill {{ a.presence }}">{{ a.get_presence_display }}</span></td>
                 <td class="muted">{{ a.owner|default:"—" }}</td>
                 <td>
+                    <a class="btn btn-sm" href="{% url 'dashboard:chat' a.pk %}">Chat</a>
                     <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:account_edit' a.pk %}">Edit</a>
                 </td>
             </tr>
