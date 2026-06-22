@@ -1,0 +1,269 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Chat — {{ account.label }}{% endblock %}
+{% block heading %}Chat — {{ account.label }}{% endblock %}
+{% block actions %}
+    <a class="btn btn-ghost" href="{% url 'dashboard:account_detail' account.pk %}">Account</a>
+{% endblock %}
+{% block content %}
+{% if not connected %}
+    <div class="card chat-notice">This account is not connected. Connect it first to use chat.</div>
+{% elif locked %}
+    <div class="card chat-notice">
+        This is a <strong>private</strong> account. Unlock it with the developer API key
+        (on the account page) before reading or replying to its chats.
+    </div>
+{% else %}
+<div class="chat-wrap" id="chat"
+     data-dialogs-url="{% url 'dashboard:chat_dialogs' account.pk %}"
+     data-history-url="{% url 'dashboard:chat_history' account.pk %}"
+     data-send-url="{% url 'dashboard:chat_send' account.pk %}">
+    <div class="chat-dialogs">
+        <div class="chat-search"><input type="text" id="dialog-search" placeholder="Search chats..."></div>
+        <div id="dialog-list"><div class="chat-notice muted">Loading chats…</div></div>
+    </div>
+    <div class="chat-main">
+        <div class="chat-head" id="chat-head"><span class="muted">Select a chat</span></div>
+        <div class="chat-body" id="chat-body">
+            <div class="chat-empty">Choose a conversation on the left to start messaging.</div>
+        </div>
+        <div class="composer" id="composer" style="display:none;">
+            <div class="compose-toolbar">
+                <button type="button" class="fmt-btn" data-cmd="bold" title="Bold"><b>B</b></button>
+                <button type="button" class="fmt-btn" data-cmd="italic" title="Italic"><i>I</i></button>
+                <button type="button" class="fmt-btn" data-cmd="underline" title="Underline"><u>U</u></button>
+                <button type="button" class="fmt-btn" data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
+                <button type="button" class="fmt-btn" data-cmd="code" title="Monospace">&lt;/&gt;</button>
+                <button type="button" class="fmt-btn" data-cmd="spoiler" title="Spoiler">▦</button>
+                <button type="button" class="fmt-btn" data-cmd="link" title="Link">🔗</button>
+                <button type="button" class="fmt-btn" id="emoji-toggle" title="Emoji">😊</button>
+            </div>
+            <div class="compose-row">
+                <div class="editor" id="editor" contenteditable="true"
+                     data-placeholder="Write a message…"></div>
+                <button type="button" class="btn send-btn" id="send-btn" title="Send">➤</button>
+            </div>
+        </div>
+        <div class="emoji-pop" id="emoji-pop"></div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if connected and not locked %}
+<script>
+(function () {
+    const root = document.getElementById('chat');
+    const urls = {
+        dialogs: root.dataset.dialogsUrl,
+        history: root.dataset.historyUrl,
+        send: root.dataset.sendUrl,
+    };
+    const csrftoken = document.cookie.split('; ').find(c => c.startsWith('csrftoken='))?.split('=')[1] || '';
+
+    const dialogList = document.getElementById('dialog-list');
+    const body = document.getElementById('chat-body');
+    const head = document.getElementById('chat-head');
+    const composer = document.getElementById('composer');
+    const editor = document.getElementById('editor');
+    let current = null;     // current target (id or username)
+    let currentTitle = '';
+    let pollTimer = null;
+    let lastIds = '';
+
+    function escapeHtml(s) {
+        return (s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    }
+    function initials(name) {
+        const n = (name || '?').trim();
+        return n ? n.split(/\s+/).slice(0,2).map(w => w[0].toUpperCase()).join('') : '?';
+    }
+    function timeStr(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        return d.toLocaleString([], {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+    }
+
+    // ---- dialogs ----
+    async function loadDialogs() {
+        try {
+            const res = await fetch(urls.dialogs);
+            const data = await res.json();
+            if (!data.ok) { dialogList.innerHTML = '<div class="chat-notice muted">'+(data.error||'Could not load chats')+'</div>'; return; }
+            renderDialogs(data.dialogs || []);
+        } catch (e) {
+            dialogList.innerHTML = '<div class="chat-notice muted">Failed to load chats.</div>';
+        }
+    }
+    let allDialogs = [];
+    function renderDialogs(dialogs) {
+        allDialogs = dialogs;
+        applyDialogFilter();
+    }
+    function applyDialogFilter() {
+        const q = (document.getElementById('dialog-search').value || '').toLowerCase();
+        const items = allDialogs.filter(d => !q || (d.title||'').toLowerCase().includes(q) || (d.username||'').toLowerCase().includes(q));
+        if (!items.length) { dialogList.innerHTML = '<div class="chat-notice muted">No chats.</div>'; return; }
+        dialogList.innerHTML = items.map(d => {
+            const target = d.username ? ('@'+d.username) : String(d.id);
+            const title = d.title || d.username || String(d.id);
+            return `<div class="dialog" data-target="${escapeHtml(target)}" data-title="${escapeHtml(title)}">
+                <div class="avatar">${escapeHtml(initials(title))}</div>
+                <div class="meta">
+                    <div class="name">${escapeHtml(title)}</div>
+                    <div class="last">${escapeHtml(d.last_message || '')}</div>
+                </div>
+                ${d.unread ? '<span class="unread">'+d.unread+'</span>' : ''}
+            </div>`;
+        }).join('');
+        dialogList.querySelectorAll('.dialog').forEach(el => {
+            el.addEventListener('click', () => openChat(el.dataset.target, el.dataset.title, el));
+        });
+    }
+    document.getElementById('dialog-search').addEventListener('input', applyDialogFilter);
+
+    // ---- conversation ----
+    async function openChat(target, title, el) {
+        current = target; currentTitle = title; lastIds = '';
+        document.querySelectorAll('.dialog').forEach(d => d.classList.remove('active'));
+        if (el) el.classList.add('active');
+        head.innerHTML = `<div class="avatar" style="width:32px;height:32px;font-size:13px;">${escapeHtml(initials(title))}</div> ${escapeHtml(title)}`;
+        composer.style.display = 'block';
+        body.innerHTML = '<div class="chat-empty">Loading…</div>';
+        await loadHistory(true);
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(() => loadHistory(false), 4000);
+    }
+
+    async function loadHistory(scroll) {
+        if (!current) return;
+        try {
+            const res = await fetch(urls.history + '?target=' + encodeURIComponent(current));
+            const data = await res.json();
+            if (!data.ok) { body.innerHTML = '<div class="chat-empty">'+(data.error||'Could not load')+'</div>'; return; }
+            const msgs = data.messages || [];
+            const ids = msgs.map(m => m.id).join(',');
+            if (ids === lastIds && !scroll) return;   // nothing new
+            lastIds = ids;
+            renderMessages(msgs);
+            if (scroll) body.scrollTop = body.scrollHeight;
+        } catch (e) { /* keep last view */ }
+    }
+
+    function renderMessages(msgs) {
+        if (!msgs.length) { body.innerHTML = '<div class="chat-empty">No messages yet. Say hi 👋</div>'; return; }
+        const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 60;
+        body.innerHTML = msgs.map(m => {
+            let content = m.html || '';
+            if (!content && m.has_media) content = '<span class="media-note">['+(m.media_type||m.kind||'media')+']</span>';
+            const sender = (!m.out && m.sender_name) ? `<div class="b-sender">${escapeHtml(m.sender_name)}</div>` : '';
+            return `<div class="bubble ${m.out ? 'out' : 'in'}">
+                ${sender}<div class="b-text">${content || '&nbsp;'}</div>
+                <div class="b-time">${timeStr(m.date)}</div>
+            </div>`;
+        }).join('');
+        body.querySelectorAll('.bubble a').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
+        if (atBottom) body.scrollTop = body.scrollHeight;
+    }
+
+    // ---- formatting ----
+    try { document.execCommand('styleWithCSS', false, false); } catch (e) {}
+    document.querySelectorAll('.fmt-btn[data-cmd]').forEach(btn => {
+        btn.addEventListener('mousedown', e => e.preventDefault());
+        btn.addEventListener('click', () => {
+            const cmd = btn.dataset.cmd;
+            editor.focus();
+            if (cmd === 'link') {
+                const url = prompt('Link URL:', 'https://');
+                if (url) document.execCommand('createLink', false, url);
+            } else if (cmd === 'code') {
+                wrapSelection('code');
+            } else if (cmd === 'spoiler') {
+                wrapSelection('span', 'tg-spoiler');
+            } else {
+                document.execCommand(cmd, false, null);
+            }
+        });
+    });
+
+    function wrapSelection(tag, className) {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        if (range.collapsed) return;
+        const el = document.createElement(tag);
+        if (className) el.className = className;
+        try {
+            el.appendChild(range.extractContents());
+            range.insertNode(el);
+            sel.removeAllRanges();
+        } catch (e) {}
+    }
+
+    // ---- emoji ----
+    const EMOJIS = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','😐','😑','😶','😏','😒','🙄','😬','😴','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','😎','🤓','🧐','😕','😟','🙁','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','😤','😡','😠','🤬','👍','👎','👌','✌️','🤞','🤟','🤘','👏','🙌','🙏','💪','🔥','✨','🎉','❤️','🧡','💛','💚','💙','💜','🖤','💯','✅','❌','⭐','💥','💬','👋','🤝','👀','💀'];
+    const pop = document.getElementById('emoji-pop');
+    pop.innerHTML = EMOJIS.map(e => `<button type="button">${e}</button>`).join('');
+    document.getElementById('emoji-toggle').addEventListener('click', () => pop.classList.toggle('open'));
+    pop.querySelectorAll('button').forEach(b => {
+        b.addEventListener('mousedown', e => e.preventDefault());
+        b.addEventListener('click', () => {
+            editor.focus();
+            document.execCommand('insertText', false, b.textContent);
+            pop.classList.remove('open');
+        });
+    });
+    document.addEventListener('click', (e) => {
+        if (!pop.contains(e.target) && e.target.id !== 'emoji-toggle') pop.classList.remove('open');
+    });
+
+    // ---- send ----
+    function editorHtml() {
+        let html = editor.innerHTML;
+        // turn block separators into line breaks for Telegram
+        html = html.replace(/<div><br\s*\/?><\/div>/gi, '<br>')
+                   .replace(/<\/div>\s*<div>/gi, '<br>')
+                   .replace(/<div>/gi, '<br>')
+                   .replace(/<\/div>/gi, '')
+                   .replace(/<\/p>\s*<p>/gi, '<br>')
+                   .replace(/<p>/gi, '').replace(/<\/p>/gi, '');
+        return html;
+    }
+
+    async function sendMessage() {
+        if (!current) return;
+        const html = editorHtml();
+        if (!editor.textContent.trim()) return;
+        const btn = document.getElementById('send-btn');
+        btn.disabled = true;
+        try {
+            const res = await fetch(urls.send, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                body: JSON.stringify({target: current, html: html}),
+            });
+            const data = await res.json();
+            if (data.ok) {
+                editor.innerHTML = '';
+                lastIds = '';
+                await loadHistory(true);
+            } else {
+                alert('Could not send: ' + (data.error || 'unknown error'));
+            }
+        } catch (e) {
+            alert('Network error while sending.');
+        } finally {
+            btn.disabled = false;
+            editor.focus();
+        }
+    }
+    document.getElementById('send-btn').addEventListener('click', sendMessage);
+    editor.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+
+    loadDialogs();
+})();
+</script>
+{% endif %}
+{% endblock %}

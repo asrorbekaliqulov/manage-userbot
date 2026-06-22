@@ -40,10 +40,13 @@ def send_message(
     file_path: str | None = None,
     reply_to: int | None = None,
     silent: bool = False,
+    parse_mode: str | None = None,
 ) -> dict:
     """Send a message (optionally with a file) to ``target``.
 
     ``target`` may be a username, phone, t.me link, or numeric id.
+    ``parse_mode`` may be ``"html"`` or ``"md"`` for rich formatting (bold,
+    italic, underline, strikethrough, code, links) just like Telegram.
     """
 
     async def _do(client):
@@ -54,6 +57,7 @@ def send_message(
             file=file_path,
             reply_to=reply_to,
             silent=silent,
+            parse_mode=parse_mode,
         )
         return {
             "ok": True,
@@ -240,6 +244,60 @@ def forward_messages(
             except Exception as exc:  # noqa: BLE001
                 results.append({"target": target, "ok": False, "error": str(exc)})
         return {"ok": True, "results": results}
+
+    try:
+        return run_async(with_client(session_string, _do, api_id, api_hash))
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": str(exc)}
+
+
+
+def fetch_chat(
+    session_string: str,
+    api_id: int,
+    api_hash: str,
+    target: str,
+    limit: int = 50,
+) -> dict:
+    """Fetch a conversation for the chat UI, with Telegram HTML formatting.
+
+    Each message includes the rich-formatted ``html`` (bold/italic/links/emoji
+    preserved), ``out`` flag, sender name, date and media info.
+    """
+    from .util import detect_kind
+
+    async def _do(client):
+        # Make ``message.text`` return Telegram HTML (entities -> tags).
+        client.parse_mode = "html"
+        entity = await client.get_entity(_coerce_target(target))
+        messages = []
+        async for m in client.iter_messages(entity, limit=limit):
+            kind, media_type, has_media = detect_kind(m)
+            sender_name = ""
+            try:
+                sender = await m.get_sender()
+                if sender is not None:
+                    sender_name = getattr(sender, "title", "") or (
+                        f"{getattr(sender, 'first_name', '')} "
+                        f"{getattr(sender, 'last_name', '')}".strip()
+                    )
+            except Exception:  # noqa: BLE001
+                pass
+            messages.append(
+                {
+                    "id": m.id,
+                    "out": bool(m.out),
+                    "html": m.text or "",
+                    "raw": m.raw_text or "",
+                    "sender_name": sender_name,
+                    "date": m.date.isoformat() if m.date else None,
+                    "kind": kind,
+                    "media_type": media_type,
+                    "has_media": has_media,
+                }
+            )
+        messages.reverse()  # chronological (oldest first)
+        return {"ok": True, "messages": messages, "chat": _entity_summary(entity)}
 
     try:
         return run_async(with_client(session_string, _do, api_id, api_hash))

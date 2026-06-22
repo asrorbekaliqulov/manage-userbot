@@ -2,6 +2,7 @@
 {% block title %}{{ account.label }}{% endblock %}
 {% block heading %}{{ account.label }}{% endblock %}
 {% block actions %}
+    <a class="btn" href="{% url 'dashboard:chat' account.pk %}">Open chat</a>
     <a class="btn btn-ghost" href="{% url 'dashboard:account_edit' account.pk %}">Edit</a>
     <form class="inline-form" method="post" action="{% url 'dashboard:account_disconnect' account.pk %}">
         {% csrf_token %}<button class="btn btn-danger" type="submit">Disconnect</button>
