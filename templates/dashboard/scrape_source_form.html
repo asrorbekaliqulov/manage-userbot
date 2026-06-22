@@ -1,0 +1,17 @@
+{% extends "dashboard/base.html" %}
+{% block title %}New scrape source{% endblock %}
+{% block heading %}New scrape source{% endblock %}
+{% block content %}
+<div class="card" style="max-width:680px;">
+    <p class="muted">Monitor a channel/group with the reader account and capture posts
+        matching your keywords. Optionally auto-forward matched posts to other channels.</p>
+    <form method="post" class="stack">
+        {% csrf_token %}
+        {% include "dashboard/_form.html" %}
+        <div class="row-between">
+            <a class="btn btn-ghost" href="{% url 'dashboard:scrape_sources' %}">Cancel</a>
+            <button class="btn" type="submit">Create source</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

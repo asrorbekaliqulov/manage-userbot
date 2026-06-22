@@ -1,0 +1,25 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Connect account{% endblock %}
+{% block heading %}Connect a Telegram account{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px;">
+    <p class="muted">Connect via login code (phone) or QR code. If the account has
+        two-step verification (2FA) enabled, you'll be asked for the password.</p>
+    <form method="post" class="stack">
+        {% csrf_token %}
+        {% include "dashboard/_form.html" %}
+        <button class="btn" type="submit">Start connection</button>
+    </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+// Show/hide phone field based on method
+const methodSel = document.querySelector('[name=method]');
+function toggle() {
+    const phoneField = document.querySelector('[name=phone]').closest('.field');
+    if (methodSel && phoneField) phoneField.style.display = methodSel.value === 'qr' ? 'none' : '';
+}
+if (methodSel) { methodSel.addEventListener('change', toggle); toggle(); }
+</script>
+{% endblock %}

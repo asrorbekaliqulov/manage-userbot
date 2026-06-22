@@ -1,0 +1,52 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Dashboard - Userbot Panel{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+{% block actions %}
+    <a class="btn" href="{% url 'dashboard:connect_start' %}">+ Connect account</a>
+{% endblock %}
+{% block content %}
+<div class="grid cols-4">
+    <div class="card stat"><div class="num">{{ active_accounts }}/{{ total_accounts }}</div><div class="lbl">Active accounts</div></div>
+    <div class="card stat"><div class="num">{{ messages_24h }}</div><div class="lbl">Messages (24h)</div></div>
+    <div class="card stat"><div class="num">{{ pending_schedules }}</div><div class="lbl">Pending schedules</div></div>
+    <div class="card stat"><div class="num">{{ pending_keys }}</div><div class="lbl">API key requests</div></div>
+</div>
+
+<div class="grid cols-2" style="margin-top:16px;">
+    <div class="card">
+        <div class="row-between"><h3>Accounts</h3><a class="muted" href="{% url 'dashboard:accounts' %}">View all</a></div>
+        <table>
+            <thead><tr><th>Label</th><th>Status</th><th>Presence</th></tr></thead>
+            <tbody>
+            {% for a in accounts %}
+                <tr>
+                    <td><a href="{% url 'dashboard:account_detail' a.pk %}">{{ a.label }}</a>
+                        {% if a.is_private %}<span class="pill locked">private</span>{% endif %}</td>
+                    <td><span class="pill {{ a.status }}">{{ a.get_status_display }}</span></td>
+                    <td><span class="pill {{ a.presence }}">{{ a.get_presence_display }}</span></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="3" class="empty">No accounts yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card">
+        <div class="row-between"><h3>Recent activity</h3><a class="muted" href="{% url 'dashboard:logs' %}">All logs</a></div>
+        <table>
+            <thead><tr><th>When</th><th>Category</th><th>Action</th></tr></thead>
+            <tbody>
+            {% for log in recent_logs %}
+                <tr>
+                    <td class="muted">{{ log.created_at|date:"m-d H:i" }}</td>
+                    <td><span class="tag">{{ log.category }}</span></td>
+                    <td>{{ log.action }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="3" class="empty">No activity yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

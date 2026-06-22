@@ -1,0 +1,57 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Messages{% endblock %}
+{% block heading %}Messages{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:16px;">
+    <form method="get" class="row-between">
+        <div style="display:flex; gap:10px; flex:1;">
+            <select name="account">
+                <option value="">All accounts</option>
+                {% for a in accounts %}<option value="{{ a.pk }}" {% if filters.account == a.pk|stringformat:'s' %}selected{% endif %}>{{ a.label }}</option>{% endfor %}
+            </select>
+            <select name="direction">
+                <option value="">Any direction</option>
+                <option value="in" {% if filters.direction == 'in' %}selected{% endif %}>Incoming</option>
+                <option value="out" {% if filters.direction == 'out' %}selected{% endif %}>Outgoing</option>
+            </select>
+            <button class="btn" type="submit">Filter</button>
+        </div>
+    </form>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+    <div class="row-between">
+        <span class="muted">Private accounts: enter a developer API key to decrypt their content.</span>
+        <form method="post" action="{% url 'dashboard:unlock_messages' %}" style="display:flex; gap:8px;">
+            {% csrf_token %}
+            <input type="text" name="api_key" placeholder="ubp_..." style="width:280px;">
+            <button class="btn btn-ghost" type="submit">Unlock</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <table>
+        <thead><tr><th>Date</th><th>Account</th><th>Dir</th><th>Kind</th><th>Chat</th><th>Sender</th><th>Content</th></tr></thead>
+        <tbody>
+        {% for m in messages %}
+            <tr>
+                <td class="muted">{{ m.obj.date|date:"m-d H:i" }}</td>
+                <td>{{ m.obj.account.label }}</td>
+                <td>{{ m.obj.get_direction_display }}</td>
+                <td><span class="tag">{{ m.obj.get_kind_display }}</span></td>
+                <td>{{ m.obj.chat_title|default:m.obj.chat_id }}</td>
+                <td class="muted">{{ m.obj.sender_name|default:"—" }}</td>
+                <td>
+                    {% if m.locked %}<span class="pill locked">locked</span>
+                    {% else %}{{ m.text|default:"—"|truncatechars:90 }}{% endif %}
+                    {% if m.obj.has_media %}<span class="tag">media</span>{% endif %}
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="7" class="empty">No messages. Run <span class="tag">python manage.py run_userbots</span> to start receiving.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

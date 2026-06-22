@@ -1,0 +1,29 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Scraping{% endblock %}
+{% block heading %}Channel scraping{% endblock %}
+{% block actions %}<a class="btn" href="{% url 'dashboard:scrape_source_create' %}">+ New source</a>{% endblock %}
+{% block content %}
+<div class="card">
+    <table>
+        <thead><tr><th>Name</th><th>Source</th><th>Reader</th><th>Keywords</th><th>Auto-forward</th><th>Active</th><th></th></tr></thead>
+        <tbody>
+        {% for s in sources %}
+            <tr>
+                <td><a href="{% url 'dashboard:scrape_posts' s.pk %}">{{ s.name }}</a></td>
+                <td class="muted">{{ s.source }}</td>
+                <td class="muted">{{ s.account.label }}</td>
+                <td class="muted">{% if s.keywords %}{{ s.keywords|join:", "|truncatechars:40 }}{% else %}all{% endif %}</td>
+                <td>{% if s.auto_forward %}<span class="pill active">on</span>{% else %}<span class="muted">off</span>{% endif %}</td>
+                <td>{% if s.is_active %}<span class="pill active">on</span>{% else %}<span class="muted">off</span>{% endif %}</td>
+                <td style="display:flex; gap:6px;">
+                    <form class="inline-form" method="post" action="{% url 'dashboard:scrape_run' s.pk %}">{% csrf_token %}<button class="btn btn-sm" type="submit">Run now</button></form>
+                    <a class="btn btn-ghost btn-sm" href="{% url 'dashboard:scrape_posts' s.pk %}">Posts</a>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="7" class="empty">No scrape sources yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

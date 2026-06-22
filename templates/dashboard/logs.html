@@ -1,0 +1,37 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Logs{% endblock %}
+{% block heading %}Audit logs{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:16px;">
+    <form method="get" style="display:flex; gap:10px;">
+        <select name="category">
+            <option value="">All categories</option>
+            {% for value, label in categories %}<option value="{{ value }}" {% if filters.category == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <select name="account">
+            <option value="">All accounts</option>
+            {% for a in accounts %}<option value="{{ a.pk }}" {% if filters.account == a.pk|stringformat:'s' %}selected{% endif %}>{{ a.label }}</option>{% endfor %}
+        </select>
+        <button class="btn" type="submit">Filter</button>
+    </form>
+</div>
+<div class="card">
+    <table>
+        <thead><tr><th>When</th><th>Category</th><th>Action</th><th>Account</th><th>Source</th><th>Details</th></tr></thead>
+        <tbody>
+        {% for log in logs %}
+            <tr>
+                <td class="muted">{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+                <td><span class="tag">{{ log.category }}</span></td>
+                <td>{{ log.action }}</td>
+                <td class="muted">{{ log.account.label|default:"—" }}</td>
+                <td class="muted">{{ log.source }}</td>
+                <td class="muted">{{ log.metadata }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="6" class="empty">No log entries.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
